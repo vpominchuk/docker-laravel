@@ -37,6 +37,36 @@ services:
         networks:
             - app-network
 
+    scheduler:
+        container_name: ${DOCKER_APP_NAME}-scheduler
+        restart: unless-stopped
+        image: ${DOCKER_APP_NAME}-apache2-mod_php-${PHP_VERSION}
+        environment:
+            CONTAINER_ROLE: scheduler
+        volumes:
+            - .docker/apache2/:/etc/apache2
+            - ${CODEBASE_PATH}:/var/www/html
+        networks:
+            - app-network
+        depends_on:
+            - app
+
+    queue:
+        container_name: ${DOCKER_APP_NAME}-queue
+        restart: unless-stopped
+        image: ${DOCKER_APP_NAME}-apache2-mod_php-${PHP_VERSION}
+        environment:
+            CONTAINER_ROLE: queue
+            APP_ENV: ${APP_ENV:-local}
+            QUEUE: default
+        volumes:
+            - .docker/apache2/:/etc/apache2
+            - ${CODEBASE_PATH}:/var/www/html
+        networks:
+            - app-network
+        depends_on:
+            - app
+
     db:
         image: mariadb
         container_name: ${DOCKER_DB_NAME}
@@ -60,6 +90,18 @@ services:
             - 11211:11211
         networks:
             - app-network
+
+    adminer:
+        image: adminer
+        container_name: ${DOCKER_DB_NAME}-adminer
+        restart: unless-stopped
+        environment:
+            ADMINER_DESIGN: haeckel
+        networks:
+            - app-network
+        ports:
+            - ${ADMINER_PORT}:8080
+
 networks:
     app-network:
         driver: bridge
