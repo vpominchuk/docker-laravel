@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+    webserver:
+        image: nginx:alpine
+        container_name: ${DOCKER_WEBSERVER_NAME}
+        restart: unless-stopped
+        depends_on:
+            - app
+            - db
+            - memcached
+        tty: true
+        ports:
+            - "${DOCKER_WEBSERVER_HTTP_PORT}:8000"
+        volumes:
+            - ${CODEBASE_PATH}:/var/www
+            - ./.docker/nginx/conf.d/:/etc/nginx/conf.d/
+        networks:
+            - app-network
+
+    app:
+        container_name: ${DOCKER_APP_NAME}
+        build:
+            context: .docker/app
+            dockerfile: Dockerfile
+        image: ${DOCKER_APP_NAME}-php_fpm-${PHP_VERSION}
+        restart: unless-stopped
+        tty: true
+        environment:
+            CONTAINER_ROLE: app
+        working_dir: /var/www
+        ports:
+            - "9000:9000"
+        volumes:
+            - ${CODEBASE_PATH}:/var/www
+            - ./.docker/app/www.conf:/etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
+        networks:
+            - app-network
+
+    db:
+        image: mariadb
+        container_name: ${DOCKER_DB_NAME}
+        restart: unless-stopped
+        ports:
+            - 3306:3306
+        environment:
+            MYSQL_DATABASE: ${DATABASE_NAME}
+            MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+        networks:
+            - app-network
+        volumes:
+            - dbdata:/var/lib/mysql
+        command: mysqld --sql_mode="" --character-set-server=utf8 --collation-server=utf8_general_ci --innodb-flush-log-at-trx-commit=0
+
+    memcached:
+        image: memcached:alpine
+        container_name: ${DOCKER_CACHE_NAME}
+        restart: unless-stopped
+        ports:
+            - 11211:11211
+        networks:
+            - app-network
+networks:
+    app-network:
+        driver: bridge
+
+volumes:
+    dbdata:
